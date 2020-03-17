@@ -32,7 +32,7 @@ if [[ $(git status -s) == "" ]]; then
 
   echo -e "\n${GREEN}Use subtree push to master branch...${WHITE}"
   echo -e "${WHITE}> cd git push origin \`git subtree split --prefix ${DIST} develop\`:master --force"
-  git push origin `git subtree split --prefix $DIST development`:master --force
+  git push origin `git subtree split --prefix $DIST develop`:master --force
 
   echo -e "\n${GREEN}Reset the temporary changes...${WHITE}"
   echo -e "${WHITE}> git reset HEAD~"

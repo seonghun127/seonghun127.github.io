@@ -1,9 +1,9 @@
 ---
 id: 0
 title: "cache"
-subtitle: "HTTP 완벽가이드 7장""
+subtitle: "cache에 대해 알아보자""
 date: "2020.03.18"
-tags: "network"
+tags: "network","http 완벽가이드"
 ---
 
 # CACHE
@@ -16,7 +16,7 @@ tags: "network"
 
 캐시는 네트워크 비용을 줄이고자 리소스의 사본을 캐시를 담당하는 프록시 서버나 웹 어플리케이션(클라이언트) 내장 메모리에 저장하여 그 다음 요청 시 적은 비용으로 리소스를 내려줄 수 있는 기능을 제공한다. 캐시를 효율적으로 사용하면 네트워크 비용을 줄일 수 있으며 인터넷 브라우저를 사용한다면 원하는 페이지를 빠르게 볼 수 있을 것이다.    
 
-    
+​    
 
 ## 캐시의 기본 흐름
 
@@ -85,9 +85,10 @@ tags: "network"
     * 다시 말해 신선도 검사 통과 시(true) 원 서버 응답에 리소스 데이터가 들어가 있지 않은 단순한 `304 Not Modified` 응답이 내려온다.
     * 캐싱된 리소스의 변경이 이뤄지지 않은 한에서 적은 네트워크 비용으로 리소스를 클라이언트에게 내려줄 수 있다.
 
-<img width="622" alt="스크린샷 2020-03-12 오전 12 26 58" src="https://user-images.githubusercontent.com/30451129/76437444-e8fca000-63fc-11ea-8be5-f05e0446179c.png">
+![](https://user-images.githubusercontent.com/30451129/76437444-e8fca000-63fc-11ea-8be5-f05e0446179c.png)
 
-    
+
+​    
 
 ## 캐시 업데이트
 
@@ -101,7 +102,7 @@ tags: "network"
 
 가장 많이 사용되는 방법은 캐싱하는 리소스 이름에 `Etag`나 날짜를 추가하는 것이다.
 
-<img width="600" alt="스크린샷 2020-03-12 오전 12 44 17" src="https://user-images.githubusercontent.com/30451129/76437448-eac66380-63fc-11ea-9f21-230aaaa1207d.png">
+![](https://user-images.githubusercontent.com/30451129/76437444-e8fca000-63fc-11ea-8be5-f05e0446179c.png)
 
 위 상황을 살펴보면 일단 HTML 내부에서 css, js, jpg 정적 파일을 불러오는 상황이다. 각 리소스에 대해서 캐시 전략이 다르다. 
 
@@ -119,4 +120,3 @@ tags: "network"
 참고 자료
 
 * https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/http-caching
-의

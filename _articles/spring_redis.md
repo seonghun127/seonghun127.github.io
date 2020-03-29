@@ -1,3 +1,12 @@
+---
+id: 5
+title: "Spring Redis"
+subtitle: "spring에서 redis 간단한 실습"
+date: "2020.03.29"
+tags: "spring","redis"
+---
+
+
 # Spring Redis 실습
 
 redis에 대해 공부를 시작하면서 spring에 적용 시키기 위해 간단한 spring redis 실습을 진행해봤습니다.

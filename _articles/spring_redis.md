@@ -72,7 +72,7 @@ redis에 대해 공부를 시작하면서 spring에 적용 시키기 위해 간�
     @NoArgsConstructor
     @EqualsAndHashCode
     @ToString
-    public class Member implements Serializable {
+    public class Member {
     
         @Id
         @GeneratedValue(strategy = GenerationType.IDENTITY)

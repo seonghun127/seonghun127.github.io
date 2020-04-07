@@ -100,7 +100,7 @@ void unknown_properties_test() throws JsonProcessingException {
 @Test
 void unknown_properties_test() throws JsonProcessingException {
 
-	ObjectMapper objectMapper = new ObjectMapper();    
+    ObjectMapper objectMapper = new ObjectMapper();    
     
     String json = "{\\"value\\":\\"test\\", \\"value2\\":\\"test2\\"}";
 
@@ -142,14 +142,14 @@ void unknown_properties_test() throws JsonProcessingException {
 @SpringBootApplication
 public class SpringPracticeApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(SpringPracticeApplication.class, args);
-	}
+    public static void main(String[] args) {
+	SpringApplication.run(SpringPracticeApplication.class, args);
+    }
 
-	@Bean
-	public ObjectMapper objectMapper() {
-		return new ObjectMapper();               // 아무 설정 없는 ObjectMapper 등록
-	}
+    @Bean
+    public ObjectMapper objectMapper() {
+	return new ObjectMapper();               // 아무 설정 없는 ObjectMapper 등록
+    }
 }
 ```
 

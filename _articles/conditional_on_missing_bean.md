@@ -17,7 +17,7 @@ tags: "spring","annoation"
 
 `@ConditionalOnMissingBean` 어노테이션이 어떻게 작동되는지 간단하게 테스트를 해봤다.
 
-> 테스트는 [이전 포스팅]()에서 확인했던 ObjectMapper를 기준으로 진행할 예정이다. autoConfiguration으로 등록되는 External Library의 jacksonObjecMapper() 메서드에 `@ConditionalOnMissingBean` 어노테이션이 붙어있는 것을 확인할 수 있었다. 
+> 테스트는 [이전 포스팅](https://seonghun127.github.io/article/7.html)에서 확인했던 `ObjectMapper`를 기준으로 진행할 예정이다. autoConfiguration으로 등록되는 External Library의 `jacksonObjecMapper()` 메서드에 `@ConditionalOnMissingBean` 어노테이션이 붙어있는 것을 확인할 수 있었다. 
 
 ![](https://user-images.githubusercontent.com/30451129/78672467-a48cf300-791b-11ea-933b-05fcb139bf11.png)
 

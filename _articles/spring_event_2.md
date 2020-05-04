@@ -299,13 +299,43 @@ condition에 SpEL을 위와같이 작성해주면 된다. 테스트는 정상적
 
 하지만 위와 같은 방식이 더 좋다고 생각한다. 이벤트 구독 메서드의 파리미터가 여러개라면 선언된 순서로 인덱스 접근하는 방식이 더 명확하게 느껴지기 때문이다.
 
+정리해보자면, `@EventListener`와 `@TransactionalEventListener`어노테이션에는 condition이라는 속성이 존재하여 SpEL로 조건을 줄 수 있다. 특정 조건의 이벤트가 발행됐을 경우에만 구독하는 조건적 이벤트 구독자를 쉽게 만들 수 있다.
+
+그리고 만약 EventListeter 클래스를 테스트하고자 Mocking할 경우 Mocking 과정에 (바이트 코드를 조작하는 CGLIB, Byte Buddy의) 버전 이슈가 있어 타켓 메서드에 선언된 파라미터 이름에 접근하지 못하는 경우가 발생할 수 있다. 최신 버전을 사용하고 있다면 상관없겠지만 Spring Boot 버전이 1.X.X라면 해당 문제를 조심해야한다.
+
+SpEL로 런타임 시 발행된 이벤트 객체에 접근하는 방법은 크게 두가지가 있다.
+
+- 하나는 타겟 메서드의 파라미터 이름으로 접근하는 방법이 있다. 다른 방법 대비 제일 명확한 장점을 가지지만 mock 객체에서 이름이 `arg0`와 같이 변할 수 있다는 이슈가 있다.
+- 다른 하나는 타켓 메서드 정보를 바탕으로 생성되는 `root` 이벤트를 통해 접근하는 방법이 있다. 여기서 `root` 는 `EventExpressionRootObject`를 가리키는데 타겟 메서드가 구독할 수 있는 이벤트들의 근원이 되는 이벤트라고 생각하면 된다. 그래서 `root`는 특정 타겟 메서드 기준 발행된 이벤트의 정보를 모두 가지고 있다. 이때 발행됐거나 발행될 수 있는 이벤트가 여러개라면 타겟 메서드의 파리미터 순서에 따라 인덱스를 매겨 `.args[index]`로 접근할 수 있다.
+
+우리는 첫번째 방법으로 구현했고 테스트 과정에서 문제를 맞이하여 두번째 방식으로 해결했다. 최신 버전의 Spring Boot를 사용한다면 첫번째 방법으로 구현해도 문제되지 않는다.
+
+마지막으로 EventListener를 테스트하기 위해 `@SpringBooTest`로 테스트 환경을 구축했다. 이는 실제 이벤트 발행하기 위함이다. 하지만 Spring 전체를 테스트를 위해 띄우는건 비효울적이므로 환경을 slice하기 위해 `@SpringBootTest(classes=MemberEventListener.class)`와 같이 특정 빈만 생성되도록 설정해줬다.
+
+그리고 Mockito 라이브러리의 Captor 기능을 활용하여 이벤트 발행 후 타겟 메서드에 이벤트가 인자로 들어왔는지 캡쳐하여 그 값을 확인하면서 테스트를 진행했다.
+
 이렇게 스프링의 이벤트 발행 / 구독 방식을 예제를 통해 구현해보았고 이를 테스트하는 방법도 같이 살펴봤다.
 
-이 모든 과정에 best practice가 아닐 수 있지만 처음 이 내용을 접해보는 사람들에게 좀 더 쉽게 다가갈 수 있었으면 좋겠다.
+이 모든 과정에 best pratice가 아닐 수 있지만 처음 이 내용을 접해보는 사람들에게 좀 더 쉽게 다가갈 수 있었으면 좋겠다.
+
+*내 스스로 이번 실습을 통해 회고를 해보자면...*
+
+처음 SpEL 시작은 이와같았다.
+
+`@TransactionalEventListener(condition = "#memberEvent.member.count >= 100"`
+
+SpEL로 타겟 메서드의 파라미터 이름(`memberEvent`)을 직접 접근하는 것이 제일 명확하다. 하지만 테스트 코드 작성 중 맞이한 오류때문에 명확하다고 생각한 코드를 수정하게 된 부분에 대해 여러가지 차원에서 아쉬움이 남는다.
+
+- 다른 방식으로 테스트 코드를 짜보려는 시도가 부족했던 점 → 버전 이슈에서 벗어나 더 좋은 방식의 테스트 코드가 있을 수 있는데 현재 방식에 너무 꽂힌 나머지 다른 고민은 많이 하지 못했다.
+- 테스트 코드를 통해 프로덕션 코드에 수정이 일어난 점 → 이 과정 속에서 더 나은 방식의 프로덕션 코드가 됐다면 좋은 현상이지만 더 좋은 코드로 발전했다는 느낌이 들기 보단 문제를 해결하기 위한 다른 방안으로 우회한 느낌이다.
+- 문제 해결하기 위한 시간이 너무 오래 걸린 점 → SpEL을 파싱하지 못하는 문제가 정확히 라이브러리의 어떤 점이 변경되어 안되는 건지 그 이유를 명확하게 파악하지 못했다. 변명에 불과하지만 그 과정에 너무 많은 시간이 할애됐고 여러 일정 문제로 심도있게 파고들지 못했다. 😢
+- (추가적으로) 모듈 분리는 필요없었다. → 모듈 분리로 다른 모듈에 존재하는 이벤트가 테스트 환경에서 참조되지 못하는 이슈때문은 아닐까라는 생각에 모듈도 분리해봤지만 해당 이슈와는 상관없는 문제였다. 문제의 원인을 보다 제대로 파악 했다면 모듈 분리까지 이어지지 않을 수도 있었다는 아쉬움이 있다.
+
+위에서 언급한 아쉬운 점을 이후에는 하지않기 위해 포비가 말하는 **의식적인 연습**을 해야겠다.
 
 ### reference
 
 - [https://spring.io/blog/2015/02/11/better-application-events-in-spring-framework-4-2](https://spring.io/blog/2015/02/11/better-application-events-in-spring-framework-4-2)
 - [https://www.baeldung.com/spring-events](https://www.baeldung.com/spring-events)
 - [https://github.com/mockito/mockito/wiki/What's-new-in-Mockito-2](https://github.com/mockito/mockito/wiki/What%27s-new-in-Mockito-2)
-- [https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-testing](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-testing)
+- [https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#xboot-features-testing](https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-testing)

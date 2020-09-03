@@ -1,0 +1,74 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title> http method </title><meta name="viewport" content="width=device-width, user-scalable=no"><meta http-equiv="X-UA-Compatible" content="ie=edge"><link rel="shortcut icon" href="/favicon.a35c33cf.ico" type="image/x-icon"><link rel="stylesheet" href="/init.366dd74d.css"><link rel="stylesheet" href="/article.3478855a.css"></head><body> <header id="top-container" role="navigation"> </header> <main id="main-container"> <article id="article-container"> <h1 id="article-title"> http method </h1> <h2 id="article-subtitle"> crud에 해당하는 http method에 대해 알아보자 </h2> <time id="article-date"> 2020.03.29 </time> <section id="article-content-container"> <h1>HTTP Method</h1>
+<p>흔히 웹 어플리케이션을 개발할 때 사용하는(CRUD) HTTP 메서드를 간략하게 알아보자.</p>
+<h3>GET</h3>
+<ul>
+<li>GET 메서드는 가장 많이 사용되는 메서드다.</li>
+<li>흔히 리소스를 읽어오고자할 때 사용하는 메서드다.</li>
+<li>READ의 성격이 강하며 멱등성이 보장된다.</li>
+<li>정적, 동적 구분없이 클라이언트가 원하는 리소스를 필요로할 때 사용된다.</li>
+</ul>
+<pre class="hljs"><code>GET /articles/123
+</code></pre>
+<ul>
+<li>위 요청은 123번의 게시글을 달라는 요청으로 이해할 수 있다.</li>
+<li>URI로 클라이언트가 읽어오려는 값을 명시하면서 GET의 HTTP 요청을 보낸다.</li>
+<li>다른 예시</li>
+</ul>
+<p><img src="https://user-images.githubusercontent.com/30451129/76144064-f560c000-60bf-11ea-8d7a-5cd370a77f6e.png" alt=""></p>
+<blockquote>
+<p>위 예시는 크롬 브라우저에서 네이버 홈페이지를 들어갈 때 일어난 요청 정보다. 저 요청으로 인해 네이버 서버는 html 타입의 응답 바디를 내려준다. 즉, 위 요청은 네이버 홈페이지를 브라우저에서 렌더링하기 위한 html 파일을 달라는 요청이다. 이 요청에 의해 리소스에 대한 어떠한 값도 변경되지 않았으며 서버는 그저 어딘가에 존재하는 html 파일을 내려줬다.</p>
+</blockquote>
+<h3>POST</h3>
+<ul>
+<li>흔히 새로운 리소스를 생성하고자 할 때 사용되는 메서드다.</li>
+<li>생성뿐만아니라 body에 담긴 데이터를 가지고 특정 행위(로그인)를 할 때 사용하는 메서드다.</li>
+<li>html에서 form 태그를 만들 때 &quot;method=post&quot;로 설정 많이 하는데 form 태그의 input 태그의 값을 서버에 새롭게 추가하겠다는 의미다.</li>
+<li>이 메서드는 비멱등성을 가지고 있어 파이프라인 커넥션에 사용되면 안된다.</li>
+</ul>
+<pre class="hljs"><code>POST /articles
+</code></pre>
+<ul>
+<li>위 요청은 요청 메세지 body에 있는 값으로 게시글을 생성해달라는 요청이다.</li>
+<li>CREATE 성격을 가지는 메서드다.</li>
+<li>예시</li>
+</ul>
+<p><img src="https://user-images.githubusercontent.com/30451129/76144085-20e3aa80-60c0-11ea-8121-59396ab564c0.png" alt="">
+<img src="https://user-images.githubusercontent.com/30451129/76144086-23460480-60c0-11ea-9525-0dc496702647.png" alt=""></p>
+<h3>PUT</h3>
+<ul>
+<li>리소스를 수정(변경)할 때 사용되는 메서드다.</li>
+<li>서버는 요청 body에 함께 전달되는 정보로 원하는 리소스를 수정한다.</li>
+</ul>
+<pre class="hljs"><code>PUT /articles/123
+</code></pre>
+<ul>
+<li>위 요청은 요청 메세지 body의 값으로 123번 게시글을 수정하려는 메세지다.</li>
+<li>UPDATE 성격의 메서드다.</li>
+<li>예시</li>
+</ul>
+<p><img src="https://user-images.githubusercontent.com/30451129/76144092-33f67a80-60c0-11ea-8837-b859cea8283a.png" alt="">
+<img src="https://user-images.githubusercontent.com/30451129/76144095-36f16b00-60c0-11ea-8727-0360a65c2af7.png" alt=""></p>
+<blockquote>
+<p>위 요청은 <a href="http://gaejangmo.com">gaejangmo.com</a> 이라는 아주 유명한 웹 페이지에서 로그인한 사용자의 별명을 수정하는 요청이다. 요청 body에 <code>value : &quot;우아한&quot;</code> 이라는 payload가 전달되어 현재 로그인된 사용자의 정보를 조회한 뒤 특정 값을 body로 넘어온 payload 값으로 수정된다. POST 예시에서는 Form Data 형식으로 데이터가 전달되었고 여기서는 payload로 전달되었다. 이는 요청 메세지의 Content-Type 헤더 값에 따라 전달되는 데이터의 형식이 다르기 때문이다. 전자는 <code>content-type: application/x-www-form-urlencoded</code> 이며 위 예시인 경우에는 <code>content-type: application/json;charset=UTF-8</code> 이다.</p>
+</blockquote>
+<h3>DELETE</h3>
+<ul>
+<li>특정 리소스를 삭제할 때 사용되는 메서드다.</li>
+</ul>
+<pre class="hljs"><code>DELETE /articles/123
+</code></pre>
+<ul>
+<li>위 요청은 123번 게시글을 삭제하겠다라는 요청이다.</li>
+<li>READ 적 성격의 GET 메서드를 제외한 나머지 3개의 메서드는 사용자 요청에 대한 올바른 사용자 검증이 필요하다.
+<ul>
+<li>자신의 게시글도 아닌데 삭제하게되면 안되기 때문이다.</li>
+</ul>
+</li>
+<li>DELETE 성격의 메서드다.</li>
+<li>예시</li>
+</ul>
+<p><img src="https://user-images.githubusercontent.com/30451129/76144101-41136980-60c0-11ea-861e-685cfd7e4e75.png" alt=""></p>
+<blockquote>
+<p>위 요청도 매우 유명한 페이지인 gaejangmo.com에서 사용자가 올린 제품 정보를 지우는 요청이다. 114번 user/product를 지우겠다는 의미다. DELETE 요청은 별다른 body 값을 넣을 필요없다. 삭제하려는 리소스의 식별 값을 URL로 충분히 나태낼 수 있기 때문이다.</p>
+</blockquote> </section> <section id="article-navigation"> <div class="article-navigation-item article-navigation-next"> <a href="/article/7.html"> <div class="article-navigation-arrow article-navigation-next">＜</div> <div class="article-navigation-content article-navigation-next"> <p class="article-navigation-title">Object Mapper</p> <p class="article-navigation-subtitle">ObjectMapper로 삽질하기</p> </div> </a> </div> <div class="article-navigation-item article-navigation-prev"> <a href="/article/11.html"> <div class="article-navigation-arrow article-navigation-prev">＞</div> <div class="article-navigation-content article-navigation-prev"> <p class="article-navigation-title">Flyway 적용해보기</p> <p class="article-navigation-subtitle">flyway 적용기</p> </div> </a> </div> </section> <section id="article-list-button-container"> <a href="/articles.html"> <div id="article-list-button">📚</div> </a> </section> </article> </main> <script defer src="/init.7c7d4dd7.js"></script>
+</body></html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title> Spring Redis </title><meta name="viewport" content="width=device-width, user-scalable=no"><meta http-equiv="X-UA-Compatible" content="ie=edge"><link rel="shortcut icon" href="/favicon.a35c33cf.ico" type="image/x-icon"><link rel="stylesheet" href="/init.366dd74d.css"><link rel="stylesheet" href="/article.3478855a.css"></head><body> <header id="top-container" role="navigation"> </header> <main id="main-container"> <article id="article-container"> <h1 id="article-title"> Spring Redis </h1> <h2 id="article-subtitle"> spring에서 redis 간단한 실습 </h2> <time id="article-date"> 2020.03.29 </time> <section id="article-content-container"> <h1>Spring Redis 실습</h1>
+<p>redis에 대해 공부를 시작하면서 spring에 적용 시키기 위해 간단한 spring redis 실습을 진행해봤습니다.</p>
+<p>모든 코드는 <a href="https://github.com/seonghun127/archive/tree/redis">github</a>에 있습니다.</p>
+<blockquote>
+<p>spring은 spring-data-redis라는 모듈을 통해 손쉽게 spring 에서 redis를 사용할 수 있도록 제공하고 있습니다. 다시한번 spring의 서비스 추상화에 속으로 감탄해봅니다.</p>
+</blockquote>
+<p>우선 필요한 의존성을 추가해줍니다.</p>
+<pre class="hljs"><code>    dependencies {
+    	implementation <span class="hljs-string">'org.springframework.boot:spring-boot-starter-data-jpa'</span>   <span class="hljs-comment">// 1</span>
+    	implementation <span class="hljs-string">"org.springframework.boot:spring-boot-starter-data-redis"</span> <span class="hljs-comment">// 2</span>
+    	implementation <span class="hljs-string">"redis.clients:jedis"</span>                                     <span class="hljs-comment">// 3</span>
+    	implementation <span class="hljs-string">'org.springframework.boot:spring-boot-starter-web'</span>
+    	compileOnly <span class="hljs-string">'org.projectlombok:lombok'</span>
+    	runtimeOnly <span class="hljs-string">'com.h2database:h2'</span>
+    	annotationProcessor <span class="hljs-string">'org.projectlombok:lombok'</span>
+    	testImplementation(<span class="hljs-string">'org.springframework.boot:spring-boot-starter-test'</span>) {
+    		exclude <span class="hljs-string">group:</span> <span class="hljs-string">'org.junit.vintage'</span>, <span class="hljs-string">module:</span> <span class="hljs-string">'junit-vintage-engine'</span>
+    	}
+    }
+</code></pre>
+<ol>
+<li>jpa 의존성 추가입니다. redis 사용에 반드시 필요한 것은 아니지만 추후 다른 실습을 할 때 필요할 수 있을거 같아서 추가해줬습니다.</li>
+<li>위에서 언급한 spring-data-redis입니다. spring에서 redis를 처음 사용하는 사람이라도 코드 몇줄로 간단하게 사용할 수 있도록 제공해주는 모듈입니다.</li>
+<li>jedis라는 모듈은 redis 메모리에 접근하기 위해 사용하는 모듈입니다. jedis에서 제공하는 Connection 으로 redis 메모리와 통신을 주고받을 수 있습니다.</li>
+</ol>
+<p><em>본격적으로 시작하기에 앞서 redis를 설치해줘야합니다. 본인 로컬 환경에서 진행하게 된다면 로컬 환경에 redis를 다운받아야 하며 aws 를 사용하신다면 aws의 redis 리소스를 먼저 구축하셔야합니다.</em></p>
+<blockquote>
+<p>redis 설치는 구글에 검색하시면 쉽게 방법을 알 수 있기 때문에 여기서는 설명하지 않고 넘어가겠습니다. 🙏</p>
+</blockquote>
+<p>이제 redis 설정을 추가해줍니다.</p>
+<pre class="hljs"><code>    <span class="hljs-meta">@Configuration</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RedisConfig</span> </span>{
+    
+    		<span class="hljs-comment">// 1</span>
+        <span class="hljs-meta">@Bean</span>
+        <span class="hljs-function"><span class="hljs-keyword">public</span> JedisConnectionFactory <span class="hljs-title">jedisConnectionFactory</span><span class="hljs-params">()</span> </span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> JedisConnectionFactory();
+        }
+    
+    		<span class="hljs-comment">// 2</span>
+        <span class="hljs-meta">@Bean</span>
+        <span class="hljs-function"><span class="hljs-keyword">public</span> RedisTemplate&lt;String, Object&gt; <span class="hljs-title">redisTemplate</span><span class="hljs-params">(JedisConnectionFactory jedisConnectionFactory)</span> </span>{
+            RedisTemplate&lt;String, Object&gt; redisTemplate = <span class="hljs-keyword">new</span> RedisTemplate&lt;&gt;();
+            redisTemplate.setConnectionFactory(jedisConnectionFactory);
+            <span class="hljs-keyword">return</span> redisTemplate;
+        }
+    }
+</code></pre>
+<ol>
+<li>
+<p>redis 메모리와 커넥션을 맺기 위한 설정입니다. jedis라는 모듈이 손쉽게 커넥션을 맺을 수 있는 기능을 제공해주기 때문에 우리는 <code>new JedisConnectionFactory()</code> 로 객체를 생성하여 빈으로 등록만 해주면 됩니다.</p>
+<ul>
+<li>
+<p>만약 로컬에서 redis를 설치하시고 실습하신다면 호스트 주소나 포트번호는 따로 설정하지 않으셔도 됩니다. <code>JedisConnectionFactory()</code>에 기본 호스트 주소와 포트번호가 설정되어 있기 때문입니다. <em>(물론 redis를 설치하실 때 따로 설정 값들을 주셨다면 그에 맞게 코드에서도 설정을 해주셔야합니다.)</em></p>
+<p><img src="https://user-images.githubusercontent.com/30451129/77851626-22167c00-7215-11ea-8fee-c641b0db9c8b.png" alt=""></p>
+</li>
+</ul>
+</li>
+<li>
+<p>1번에서 빈으로 등록한 <code>JedisConnectionFactory</code>를 주입받아 <code>RedisTemplate</code>을 빈으로 등록해줍니다. <code>RedisTemplate</code>은 spring-data-redis 모듈에서 제공하는 헬퍼 클래스입니다. 우리는 이 클래스를 통해 손쉽게 redis에 데이터를 탐색, 추가, 삭제, 수정을 할 수 있습니다.</p>
+</li>
+</ol>
+<p>간단하게 엔티티와 레퍼지토리를 만들어봅시다.</p>
+<pre class="hljs"><code>    <span class="hljs-meta">@Getter</span>
+    <span class="hljs-meta">@NoArgsConstructor</span>
+    <span class="hljs-meta">@EqualsAndHashCode</span>
+    <span class="hljs-meta">@ToString</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Member</span> </span>{
+    
+        <span class="hljs-meta">@Id</span>
+        <span class="hljs-meta">@GeneratedValue</span>(strategy = GenerationType.IDENTITY)
+        <span class="hljs-keyword">private</span> Long id;
+    
+        <span class="hljs-keyword">private</span> String memberNo;
+    
+        <span class="hljs-keyword">private</span> Integer count;
+    
+        <span class="hljs-meta">@Builder</span>
+        <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-title">Member</span><span class="hljs-params">(String memberNo, Integer count)</span> </span>{
+            <span class="hljs-keyword">this</span>.memberNo = memberNo;
+            <span class="hljs-keyword">this</span>.count = count;
+        }
+    }
+</code></pre>
+<pre class="hljs"><code>    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">interface</span> <span class="hljs-title">MemberRepository</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">JpaRepository</span>&lt;<span class="hljs-title">Member</span>, <span class="hljs-title">Long</span>&gt; </span>{
+    }
+</code></pre>
+<p>그리고 <code>RedisTemplate</code>으로 redis를 사용할 수 있는 간편 클래스를 하나 만들어봅시다.</p>
+<pre class="hljs"><code>    <span class="hljs-meta">@Component</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MemberCacheStore</span> </span>{
+    
+        <span class="hljs-keyword">private</span> RedisTemplate&lt;String, Object&gt; redisTemplate;
+        <span class="hljs-keyword">private</span> ValueOperations&lt;String, Object&gt; valueOperations;    <span class="hljs-comment">// 1</span>
+    
+        <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-title">MemberCacheStore</span><span class="hljs-params">(RedisTemplate&lt;String, Object&gt; redisTemplate)</span> </span>{
+            <span class="hljs-keyword">this</span>.redisTemplate = redisTemplate;
+            <span class="hljs-keyword">this</span>.valueOperations = redisTemplate.opsForValue();     <span class="hljs-comment">// 2</span>
+        }
+    
+        <span class="hljs-function"><span class="hljs-keyword">public</span> Member <span class="hljs-title">get</span><span class="hljs-params">(String key)</span> </span>{
+            <span class="hljs-keyword">return</span> (Member) valueOperations.get(key);               <span class="hljs-comment">// 3</span>
+        }
+    
+        <span class="hljs-function"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">set</span><span class="hljs-params">(String key, Object value)</span> </span>{
+            valueOperations.set(key, value);                        <span class="hljs-comment">// 4</span>
+        }
+    }
+</code></pre>
+<ol>
+<li>이 실습에서는 redis의 제일 기본적인 자료구조인 String 자료구조를 사용해볼 것입니다. <code>ValueOperation</code>클래스가 String 자료구조로 redis에 데이터를 적재시켜줄 명령어 클래스입니다. 다양한 자료구조에 맞춰 사용할 수 있는 Operation 클래스도 다양합니다.
+<ul>
+<li>redis에는 다양한 자료구조가 있습니다. 자료구조에 대한 공부가 필요하신 분은 <a href="https://seonghun127.github.io/article/3.html">여기</a>를 보시면 됩니다.</li>
+</ul>
+</li>
+<li>생성자를 통해 <code>RedisTemplate</code>을 주입 받아서 <code>RedisTemplate</code>이 가지고 있는 <code>ValueOperation</code> 객체를 <code>opsForValue()</code>라는 메서드로 주입시켜줍니다.</li>
+<li>String 자료구조에서 key로 데이터를 조회해오는 메서드입니다.</li>
+<li>String 자료구조에서 key와 value를 저장하는 메서드입니다.</li>
+</ol>
+<p>이제부터 우리는 <code>MemberCacheStore</code> 클래스로 실습을 진행해볼 것입니다.</p>
+<p>간단한 테스트를 만들어봅시다.</p>
+<pre class="hljs"><code>    <span class="hljs-meta">@SpringBootTest</span>
+    <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SpringPracticeApplicationTests</span> </span>{
+    
+    	<span class="hljs-meta">@Autowired</span>
+    	<span class="hljs-keyword">private</span> MemberRepository memberRepository;
+    
+    	<span class="hljs-meta">@Autowired</span>
+    	<span class="hljs-keyword">private</span> MemberCacheStore memberCacheStore;
+    
+    	<span class="hljs-meta">@Test</span>
+    	<span class="hljs-keyword">void</span> redis_저장_조회_테스트() {
+    		<span class="hljs-comment">// 1. Given</span>
+    		Member member = Member.builder()
+    				.memberNo(<span class="hljs-string">"123"</span>)
+    				.count(<span class="hljs-number">100</span>)
+    				.build();
+    		Member newMember = memberRepository.save(member);                <span class="hljs-comment">// 1</span>
+    
+    		<span class="hljs-comment">// 2. When</span>
+    		memberCacheStore.set(newMember.getMemberNo(), newMember);        <span class="hljs-comment">// 2</span>
+    
+    		<span class="hljs-comment">// 3. Then</span>
+    		assertThat(memberCacheStore.get(newMember.getMemberNo())).isEqualTo(newMember);    <span class="hljs-comment">// 3</span>
+    	}
+    }
+</code></pre>
+<ol>
+<li>
+<p>사실 없어도 되는 로직입니다. 원치않으시면 삭제하셔도됩니다.</p>
+</li>
+<li>
+<p>주입받은 <code>MemberCacheStore</code> 객체의 <code>set()</code> 메서드로 <code>Member</code> 클래스가 가지고 있는 memberNo 값으로 key로, 새롭게 생성한 <code>newMembe</code> 객체를 value로 저장해줍니다.</p>
+</li>
+<li>
+<p>그리고 <code>newMember</code> 객체의 memberNo 값으로 redis 메모리에서 값을 조회한 뒤 <code>newMember</code>와 같은지 테스트를 돌려봅니다. 테스트는 정상적으로 성공합니다.</p>
+<p><img src="https://user-images.githubusercontent.com/30451129/77851631-25aa0300-7215-11ea-935a-70fe1cfe7392.png" alt=""></p>
+</li>
+</ol>
+<p>해당 테스트는 직접 spring boot를 띄워 실제 로직을 수행시킨 테스트이기 때문에 redis 메모리 실제 데이터가 적재됐을 것입니다. 직접 redis 메모리에 접속해서 데이터를 확인해봅시다. (redis-cli로 터미널에서 확인해보려합니다.)</p>
+<p><img src="https://user-images.githubusercontent.com/30451129/77851632-26429980-7215-11ea-9055-a554adfd1f66.png" alt=""></p>
+<p>터미널에서 확인해보니 데이터는 분명 들어가 있는데 위와같은 상황이 발생했습니다. 사람이 알 수 없는 문자열 형태로 데이터가 저장되어 직접 메모리 조회 시에는 뭐가 뭔지 알 수 없는 상황이었습니다.</p>
+<p>해당 이슈를 확인해보니 <code>RedisTemplate</code>을 빈으로 등록할 때 특별히 객체의 serializer 를 설정해주지 않았기 때문입니다. <code>RedisTemplate</code>의 디폴트 serializer는 <code>JdkSerializationRedisSerializer</code>입니다.</p>
+<p><img src="https://user-images.githubusercontent.com/30451129/77851635-26db3000-7215-11ea-92f5-66ccd91e7996.png" alt=""></p>
+<p>위 <code>RedisTemplat</code>클래스의 <code>afterProPertiesSet()</code>에서 디폴트 serializer를 등록해주고 있습니다. 해당 메서드는 빈으로 등록될 때 실행되는 메서드입니다. 만약 커스텀하게 serializer를 <code>RedisTemplate</code>에 설정해주지 않았다면 빨간 네모칸에 로직이 수행될 것입니다.</p>
+<p>그래서 새롭게 serializer 설정을 추가해줍시다.</p>
+<pre class="hljs"><code>    <span class="hljs-meta">@Configuration</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">RedisConfig</span> </span>{
+    
+        <span class="hljs-meta">@Bean</span>
+        <span class="hljs-function"><span class="hljs-keyword">public</span> JedisConnectionFactory <span class="hljs-title">jedisConnectionFactory</span><span class="hljs-params">()</span> </span>{
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> JedisConnectionFactory();
+        }
+    
+        <span class="hljs-meta">@Bean</span>
+        <span class="hljs-function"><span class="hljs-keyword">public</span> RedisTemplate&lt;String, Object&gt; <span class="hljs-title">redisTemplate</span><span class="hljs-params">(JedisConnectionFactory jedisConnectionFactory)</span> </span>{
+            RedisTemplate&lt;String, Object&gt; redisTemplate = <span class="hljs-keyword">new</span> RedisTemplate&lt;&gt;();
+            redisTemplate.setConnectionFactory(jedisConnectionFactory);
+            <span class="hljs-comment">// 1</span>
+            redisTemplate.setKeySerializer(redisTemplate.getStringSerializer());
+            <span class="hljs-comment">// 2</span>
+            redisTemplate.setValueSerializer(<span class="hljs-keyword">new</span> GenericJackson2JsonRedisSerializer());
+            <span class="hljs-keyword">return</span> redisTemplate;
+        }
+    }
+</code></pre>
+<ol>
+<li>
+<p>우선 redis key의 serializer를 등록해줍니다. key는 String 형태를 유지해주는 serializer로 등록해주면 됩니다. 보통 key는 문자로 저장되는 것이 사람이 보는데 제일 이해하기 쉽기 때문입니다. 사실 <code>RedisTemplate</code>을 보면 해당 serializer를 가지고 있습니다.</p>
+<p><img src="https://user-images.githubusercontent.com/30451129/77851636-2773c680-7215-11ea-87fd-0a85a8edd325.png" alt=""></p>
+<p>그래서 이 값을 그대로 사용해주면 됩니다. 사실 <code>StringRedisSerializer</code> 객체를 새롭게 만들어 <code>setKeySerializer()</code>의 인자로 넣어줘도 되지만 굳이 새롭게 만들지말고 이미 <code>RedisTemplate</code>에 존재하는 객체를 사용해줍시다.</p>
+</li>
+<li>
+<p>key의 경우 문자 형태로 입력되고 저장도 문자 형태로 되기 때문에 상관 없었지만 여기서 value는 객체가 저장됩니다. 현재 실습에선 <code>Member</code>라는 객체를 저장하려하기 때문에 객체를 json 형태의 문자열 형태로 바꿔주는 <code>GenericJackson2JsonRedisSerializer</code>로 설정해줍니다. (json 형태가 사람이 보기에도 제일 읽기 쉬운 형태의 구조이기 때문에 이걸로 설정해줬습니다.)</p>
+</li>
+</ol>
+<p>이제 다시 테스트를 돌려줍시다. (스프링에 정상적으로 뜬다면 테스트 로직을 바꾼 것이 없기 때문에 테스트는 정상적으로 성공할 것입니다.)</p>
+<p>그리고 터미널로 redis 메모리의 데이터를 확인해봅시다.</p>
+<p><img src="https://user-images.githubusercontent.com/30451129/77851637-280c5d00-7215-11ea-87f6-cc5ba67486e2.png" alt=""></p>
+<p>데이터가 설정대로 잘 저장된 것을 확인할 수 있습니다.</p>
+<p>지금까지 간단하게 spring에서 redis를 사용해보는 실습이었습니다.</p> </section> <section id="article-navigation"> <div class="article-navigation-item article-navigation-next"> <a href="/article/2.html"> <div class="article-navigation-arrow article-navigation-next">＜</div> <div class="article-navigation-content article-navigation-next"> <p class="article-navigation-title">Spring Security OAuth2</p> <p class="article-navigation-subtitle">spring security oauth2에 대해 알아보자</p> </div> </a> </div> <div class="article-navigation-item article-navigation-prev"> <a href="/article/10.html"> <div class="article-navigation-arrow article-navigation-prev">＞</div> <div class="article-navigation-content article-navigation-prev"> <p class="article-navigation-title">Spring Event 2</p> <p class="article-navigation-subtitle">spring event를 적용해보면서 했던 삽질 2</p> </div> </a> </div> </section> <section id="article-list-button-container"> <a href="/articles.html"> <div id="article-list-button">📚</div> </a> </section> </article> </main> <script defer src="/init.7c7d4dd7.js"></script>
+</body></html>

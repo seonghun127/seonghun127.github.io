@@ -1,0 +1,280 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title> Spring Security OAuth2 </title><meta name="viewport" content="width=device-width, user-scalable=no"><meta http-equiv="X-UA-Compatible" content="ie=edge"><link rel="shortcut icon" href="/favicon.a35c33cf.ico" type="image/x-icon"><link rel="stylesheet" href="/init.366dd74d.css"><link rel="stylesheet" href="/article.3478855a.css"></head><body> <header id="top-container" role="navigation"> </header> <main id="main-container"> <article id="article-container"> <h1 id="article-title"> Spring Security OAuth2 </h1> <h2 id="article-subtitle"> spring security oauth2에 대해 알아보자 </h2> <time id="article-date"> 2020.03.25 </time> <section id="article-content-container"> <h1>Spring Security OAuth2</h1>
+<blockquote>
+<p>http 완벽가이드 12장 기본인증을 읽다가 github oauth2와 spring security를 공부하면서 정리했던 기억이 나서 내용을 좀 다듬어보고 블로그에 올려본다.</p>
+</blockquote>
+<p>기본적으로 <code>OAuth2</code> 방식에는 4가지 방식이 있습니다.</p>
+<ul>
+<li>Authorization Code Grant</li>
+<li>Implicit Grant</li>
+<li>Resource Owner Password Credentials Grant</li>
+<li>Client Credentials Grant</li>
+</ul>
+<h2>Authorization Code Grant Flow</h2>
+<p>그중 첫번째인 <strong>Authorization Code Grant</strong> 방식이 제일 많이 사용됩니다.</p>
+<p><img src="https://user-images.githubusercontent.com/30451129/70374365-b0988200-1934-11ea-8c4d-e901c10af800.png" alt=""></p>
+<ul>
+<li>
+<p>(A) <code>Resource Owner(사용자)</code>는 <code>User-Agent(브라우저)</code>를 통해 <code>Client(Application)</code>에게 <a href="http://domain.com/oauth2/authorization/github">domain.com/oauth2/authorization/github</a> 경로로 요청을 보냅니다.</p>
+</li>
+<li>
+<p>(A) <code>Client</code>는 위 경로로 들어온 요청에 대해 OAuth2 인증 방식 요청임을 확인하고 <code>Authorization Server(권한 서버, OAuth Provider 서버 : Github OAuth App Server)</code>에게 접근할 수 있는 경로를 Location 해더에 담아 응답합니다. 이때 Client는 Location 정보로 authorization-endpoint <a href="https://github.com/login/oauth/authorize">https://github.com/login/oauth/authorize</a>)와 쿼리 스트링으로 Client Identifier (client-id), Redirection-URI(<a href="http://domain.com/login/oauth2/code/github">domain.com/login/oauth2/code/github</a>) 등(scope, state…)을 담아줍니다.</p>
+</li>
+<li>
+<p>(A) 302 리다이렉션 응답을 받은 <code>User-Agent</code>는 Location 경로에 의해 <code>Authorization Server</code>에게 요청을 보내고 이 권한 서버는 위에서 <code>Client</code>가 담아놓은 client-id를 확인하여 해당 oauth app의 권한 승인 페이지로 이동시켜줍니다. (oauth2 provider에 로그인 되어 있지 않다면 로그인을 먼저 하라는 페이지로 이동시킵니다.)</p>
+</li>
+<li>
+<p>(B) <code>User-Agent</code>에 승인페이지가 띄우고 <code>Resource Owner</code>는 권한을 부여하거나 거절합니다. 권한 승인(또는 거절) 정보를 <code>Authorization Server</code>에 보냅니다.</p>
+</li>
+<li>
+<p>© 만약 <code>Resource Owner</code>가 권한 승인했다면 <code>Authorization Server</code>는 token(code)을 발행합니다. 그리고 <code>User-Agent</code>를 이전에 전달 받은 Redirect-URI 경로(<a href="http://domain.com/login/oauth2/code/github">domain.com/login/oauth2/code/github</a>)로 리다이렉트 시킵니다. 이때 리다이렉트 경로에 발급한 토큰과 더불어 이전에 <code>Client</code>가 전달한 여러 상태 값을 같이 담아줍니다.</p>
+</li>
+<li>
+<p>(D) <code>User-Agent</code>는 <code>Client</code>로 리다이렉트될 것이고 <code>Client</code>는 다시 <code>Authorization Server</code>에게 Token-URI(<a href="https://github.com/login/oauth/access_token">https://github.com/login/oauth/access_token</a>)경로에 Post 요청으로 Access Token을 달라는 요청을 보냅니다. 이때 Access Token을 발급하기위한 인증을 위해 이전에 받은 token(code)과 더불어 <code>Authorization Server</code>에 보냈었던 상태값(client-id, client-secret, redirect-uri)을 같이 보냅니다.</p>
+</li>
+<li>
+<p>(E) <code>Authorization Server</code>는 <code>Client</code>가 보낸 값을 가지고 타당한지를 확인하고 유효한 정보가 확인됐을 경우 Access Token을 발행하여 (선택적으로 Refresh Token도 같이 발행한다.) <code>Client</code>로 응답합니다.</p>
+<p><em>©에서 발행한 token과 (E)에서 발행한 access token은 다른 것입니다.</em></p>
+</li>
+<li>
+<p>추가로 <code>Client</code>가 Access Token을 발급 받으면 해당 토큰을 이용하여 <code>Resource Server</code>의 user-Info-endpoint(<a href="https://api.github.com/user/%7Buser-id%7D">https://api.github.com/user/{user-id}</a>) 경로로 사용자 정보를 받아옵니다.</p>
+</li>
+</ul>
+<h2>Spring Security + OAuth2</h2>
+<h3>OAuth 설정</h3>
+<p>사실상 Spring Security에서 OAuth2에서 필요한 설정을 대부분 해주고 있습니다.</p>
+<pre class="hljs"><code>    <span class="hljs-keyword">package</span> org.springframework.security.config.oauth2.client;
+    
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> CommonOAuth2Provider {
+    	...
+    
+    	GITHUB {
+    
+    		<span class="hljs-meta">@Override</span>
+    		<span class="hljs-function"><span class="hljs-keyword">public</span> Builder <span class="hljs-title">getBuilder</span><span class="hljs-params">(String registrationId)</span> </span>{
+    			ClientRegistration.Builder builder = getBuilder(registrationId,
+    					ClientAuthenticationMethod.BASIC, DEFAULT_REDIRECT_URL);
+    			builder.scope(<span class="hljs-string">"read:user"</span>);
+    			builder.authorizationUri(<span class="hljs-string">"https://github.com/login/oauth/authorize"</span>);
+    			builder.tokenUri(<span class="hljs-string">"https://github.com/login/oauth/access_token"</span>);
+    			builder.userInfoUri(<span class="hljs-string">"https://api.github.com/user"</span>);
+    			builder.userNameAttributeName(<span class="hljs-string">"id"</span>);
+    			builder.clientName(<span class="hljs-string">"GitHub"</span>);
+    			<span class="hljs-keyword">return</span> builder;
+    		}
+    	},
+    
+    	...
+    }
+</code></pre>
+<p>이미 Spring Security가 위 <code>CommonOAuth2Provider</code> 처럼 OAuth 연동에 필요한 (github oauth의)기본 설정 정보를 다 만들어놔서 바로 사용할 수 있도록 제공하고 있습니다.</p>
+<p><strong>Authorization Code Grant Flow</strong>에서 이야기한 <code>Authorization Server</code>로 접근하기 위한 authorization-endpoint, Access Token을 발급받기 위한 uri, 인가를 받고 사용자 정보를 받기위한 userInfo-endpoint 등 <code>CommonOAuth2Provider.GITHUB</code> 에서 정의된 값으로 자동 설정된 것입니다.</p>
+<p>추가로 처음 사용자(<code>Resource Owner</code>)가 oauth 인증을 하기위한 시도의 시발점(A)으로 접근하는 경로 (<a href="http://domain.com/oauth2/authorization/github">http://domain.com/oauth2/authorization/github</a>) 또한 Spring Security가 기본으로 제공하는 설정 값입니다.</p>
+<p>그래서 우리는 아래처럼 두가지(client-id / client-secret)만 설정해주면 됩니다.</p>
+<pre class="hljs"><code>    <span class="hljs-comment"># application.yml</span>
+    
+<span class="hljs-attr">    spring:</span>
+<span class="hljs-attr">      security:</span>
+<span class="hljs-attr">        oauth2:</span>
+<span class="hljs-attr">          client:</span>
+<span class="hljs-attr">            registration:</span>
+<span class="hljs-attr">              github:</span>
+<span class="hljs-attr">                client-id:</span> <span class="hljs-string">&lt;클라이언트</span> <span class="hljs-string">ID&gt;</span>
+<span class="hljs-attr">                client-secret:</span> <span class="hljs-string">&lt;클라이언트</span> <span class="hljs-string">SECRET&gt;</span>
+</code></pre>
+<h3>OAuth 적용</h3>
+<pre class="hljs"><code>    <span class="hljs-meta">@EnableWebSecurity</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SecurityConfig</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">WebSecurityConfigurerAdapter</span> </span>{
+    
+        <span class="hljs-meta">@Override</span>
+        <span class="hljs-function"><span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">configure</span><span class="hljs-params">(<span class="hljs-keyword">final</span> HttpSecurity http)</span> <span class="hljs-keyword">throws</span> Exception </span>{
+            http.authorizeRequests()
+                    .antMatchers(<span class="hljs-string">"/"</span>).permitAll()
+                    .anyRequest().authenticated()
+                .and()
+                    .oauth2Login();            <span class="hljs-comment">// 기본 oauth login 적용</span>
+        }
+    }
+</code></pre>
+<p><code>.oauth2Login()</code> 을 적용함으로써 Spring Security 에 새로운 필터가 두개가 추가됩니다.</p>
+<p>이 필터가 OAuth2 적용을 위한 설정과 통신을 담당하게 됩니다.</p>
+<pre class="hljs"><code>    org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter
+    org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter
+</code></pre>
+<p>위 <strong>Authorization Code Grant Flow</strong> 에서 (A), (B), © 까지 <code>User-Agent(브라우저)</code>와 <code>Authorization Server</code>간의 통신이었고 (D), (E)가 <code>Client</code>와 <code>Authorization / Resource Server</code>간의 통신입니다.</p>
+<p><em>브라우저를 통한 통신은 그렇다 쳐도 서버간(<code>Client</code> - <code>Authorization Server</code>) 통신은 어떻게 이뤄질까?</em></p>
+<pre class="hljs"><code>    <span class="hljs-keyword">package</span> org.springframework.security.oauth2.client.endpoint;
+    
+    <span class="hljs-comment">// Access Token 발급 과정</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DefaultAuthorizationCodeTokenResponseClient</span> </span>{
+    	...
+    
+    	<span class="hljs-meta">@Override</span>
+    	<span class="hljs-function"><span class="hljs-keyword">public</span> OAuth2AccessTokenResponse <span class="hljs-title">getTokenResponse</span><span class="hljs-params">(OAuth2AuthorizationCodeGrantRequest authorizationCodeGrantRequest)</span> </span>{
+    		...
+    		<span class="hljs-comment">// post request 생성</span>
+    		<span class="hljs-comment">// public T convert(S s) {</span>
+    		<span class="hljs-comment">//	...</span>
+    		<span class="hljs-comment">//	// 기존에 Spring Security가 설정한 token uri 값을 불러와 uri 경로로 설정</span>
+    		<span class="hljs-comment">//	URI uri = UriComponentsBuilder.fromUriString(clientRegistration.getProviderDetails().getTokenUri())</span>
+    		<span class="hljs-comment">//		.build()</span>
+    		<span class="hljs-comment">//		.toUri();</span>
+    		<span class="hljs-comment">//	return new RequestEntity&lt;&gt;(formParameters, headers, HttpMethod.POST, uri);</span>
+    		<span class="hljs-comment">// }</span>
+    		RequestEntity&lt;?&gt; request = <span class="hljs-keyword">this</span>.requestEntityConverter.convert(authorizationCodeGrantRequest);
+    
+    		ResponseEntity&lt;OAuth2AccessTokenResponse&gt; response;
+    		<span class="hljs-keyword">try</span> {
+    			<span class="hljs-comment">// RestOperation을 이용한 통신을 진행</span>
+    			response = <span class="hljs-keyword">this</span>.restOperations.exchange(request, OAuth2AccessTokenResponse.class);
+    		} <span class="hljs-keyword">catch</span> (RestClientException ex) {
+    			OAuth2Error oauth2Error = <span class="hljs-keyword">new</span> OAuth2Error(INVALID_TOKEN_RESPONSE_ERROR_CODE,
+    					<span class="hljs-string">"An error occurred while attempting to retrieve the OAuth 2.0 Access Token Response: "</span> + ex.getMessage(), <span class="hljs-keyword">null</span>);
+    			<span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> OAuth2AuthorizationException(oauth2Error, ex);
+    		}
+    
+    		OAuth2AccessTokenResponse tokenResponse = response.getBody();
+    
+    		...
+    	}
+    
+    	...
+    }
+</code></pre>
+<p>위 코드에 나와있다시피 <code>this.requestEntityConverter.convert(authorizationCodeGrantRequest);</code> 를 통해 Http Request를 Access Token을 발급받기 위한 요청 규약에 맞게 생성하고 <code>this.restOperations.exchange(request, OAuth2AccessTokenResponse.class);</code> 로 통신을 하게 됩니다.</p>
+<p><em><code>SecurityConfig</code> Spring Security 설정에서 <code>.oauth2Login()</code>만으로 설정해놨기 때문에 Default로 설정된 클래스<code>DefaultAuthorizationCodeTokenResponseClient</code>에 의해 oauth 인증 - 인가가 처리됩니다.</em></p>
+<pre class="hljs"><code>    <span class="hljs-keyword">package</span> org.springframework.security.oauth2.client.userinfo;
+    
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DefaultOAuth2UserService</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">OAuth2UserService</span>&lt;<span class="hljs-title">OAuth2UserRequest</span>, <span class="hljs-title">OAuth2User</span>&gt; </span>{
+    	...
+    	<span class="hljs-meta">@Override</span>
+    	<span class="hljs-function"><span class="hljs-keyword">public</span> OAuth2User <span class="hljs-title">loadUser</span><span class="hljs-params">(OAuth2UserRequest userRequest)</span> <span class="hljs-keyword">throws</span> OAuth2AuthenticationException </span>{
+    		...
+    		<span class="hljs-comment">// convert() 로 request 요청 생성</span>
+    		RequestEntity&lt;?&gt; request = <span class="hljs-keyword">this</span>.requestEntityConverter.convert(userRequest);
+    
+    		ResponseEntity&lt;Map&lt;String, Object&gt;&gt; response;
+    
+    		<span class="hljs-keyword">try</span> {
+    			<span class="hljs-comment">// Authorization Server와 통신</span>
+    			response = <span class="hljs-keyword">this</span>.restOperations.exchange(request, PARAMETERIZED_RESPONSE_TYPE);
+    		} <span class="hljs-keyword">catch</span> (OAuth2AuthorizationException ex) {
+    			...
+    		}
+    
+    		Map&lt;String, Object&gt; userAttributes = response.getBody();
+    		Set&lt;GrantedAuthority&gt; authorities = <span class="hljs-keyword">new</span> LinkedHashSet&lt;&gt;();
+    		authorities.add(<span class="hljs-keyword">new</span> OAuth2UserAuthority(userAttributes));
+    		OAuth2AccessToken token = userRequest.getAccessToken();
+    		<span class="hljs-keyword">for</span> (String authority : token.getScopes()) {
+    			authorities.add(<span class="hljs-keyword">new</span> SimpleGrantedAuthority(<span class="hljs-string">"SCOPE_"</span> + authority));
+    		}
+    
+    		<span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> DefaultOAuth2User(authorities, userAttributes, userNameAttributeName);
+    	}
+    
+    	...
+    }
+</code></pre>
+<p>Access Token을 받아오는 방식과 비슷하게 <code>DefaultOAuth2UserService</code>에서 user-info-endpoint 경로로 사용자 정보를 받아옵니다.</p>
+<pre class="hljs"><code>    <span class="hljs-keyword">package</span> org.springframework.security.oauth2.client.userinfo;
+    
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OAuth2UserRequestEntityConverter</span> </span>{
+    	...
+    
+    	<span class="hljs-meta">@Override</span>
+    	<span class="hljs-keyword">public</span> RequestEntity&lt;?&gt; convert(OAuth2UserRequest userRequest) {
+    		ClientRegistration clientRegistration = userRequest.getClientRegistration();
+    
+    		...
+    
+    		HttpHeaders headers = <span class="hljs-keyword">new</span> HttpHeaders();
+    		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+    
+    		<span class="hljs-comment">// 기존에 Spring Security가 설정한 user-info-endpoint의 값을 불러와 uri 경로 설정</span>
+    		URI uri = UriComponentsBuilder.fromUriString(clientRegistration.getProviderDetails().getUserInfoEndpoint().getUri())
+    				.build()
+    				.toUri();
+    
+    		...
+    
+    		<span class="hljs-keyword">return</span> request;
+    	}
+    	...
+    }
+</code></pre>
+<p><code>Client</code> - <code>Authorization Server</code> 통신 담당 클래스<br>
+<em>위에서 설명한 Access Token 발급 로직, 사용자 정보 조회 로직을 호출하는 클래스다.</em></p>
+<pre class="hljs"><code>    <span class="hljs-keyword">package</span> org.springframework.security.oauth2.client.authentication;
+    
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">OAuth2LoginAuthenticationProvider</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">AuthenticationProvider</span> </span>{
+    	...
+    	
+    	<span class="hljs-meta">@Override</span>
+    	<span class="hljs-function"><span class="hljs-keyword">public</span> Authentication <span class="hljs-title">authenticate</span><span class="hljs-params">(Authentication authentication)</span> <span class="hljs-keyword">throws</span> AuthenticationException </span>{
+    		
+    		...
+                OAuth2AccessTokenResponse accessTokenResponse;
+		<span class="hljs-keyword">try</span> {
+			OAuth2AuthorizationExchangeValidator.validate(
+					authorizationCodeAuthentication.getAuthorizationExchange());
+                        
+                        <span class="hljs-comment">// access token 발급</span>
+			accessTokenResponse = <span class="hljs-keyword">this</span>.accessTokenResponseClient.getTokenResponse(
+					<span class="hljs-keyword">new</span> OAuth2AuthorizationCodeGrantRequest(
+							authorizationCodeAuthentication.getClientRegistration(),
+							authorizationCodeAuthentication.getAuthorizationExchange()));
+
+		} <span class="hljs-keyword">catch</span> (OAuth2AuthorizationException ex) {
+			OAuth2Error oauth2Error = ex.getError();
+			<span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+		}
+
+                <span class="hljs-comment">// 위에서 받아온 accessToken 추출</span>
+    		OAuth2AccessToken accessToken = accessTokenResponse.getAccessToken();
+    		Map&lt;String, Object&gt; additionalParameters = accessTokenResponse.getAdditionalParameters();
+    
+    		<span class="hljs-comment">// 인가된 사용자 정보 가져옴 with accessToken</span>
+    		OAuth2User oauth2User = <span class="hljs-keyword">this</span>.userService.loadUser(<span class="hljs-keyword">new</span> OAuth2UserRequest(
+    				authorizationCodeAuthentication.getClientRegistration(), accessToken, additionalParameters));
+    
+    		...
+    
+    		<span class="hljs-comment">// 위에서 가져온 정보 저장</span>
+    		OAuth2LoginAuthenticationToken authenticationResult = <span class="hljs-keyword">new</span> OAuth2LoginAuthenticationToken(
+    			authorizationCodeAuthentication.getClientRegistration(),
+    			authorizationCodeAuthentication.getAuthorizationExchange(),
+    			oauth2User,
+    			mappedAuthorities,
+    			accessToken,
+    			accessTokenResponse.getRefreshToken());
+    		authenticationResult.setDetails(authorizationCodeAuthentication.getDetails());
+    
+    		<span class="hljs-keyword">return</span> authenticationResult;
+    	}
+    
+    	...
+    }
+</code></pre>
+<p>위에서 저장된<code>OAuth2LoginAuthenticationToken authenticationResult</code> 는 추후 여러 권한 값과 함께 <code>OAuth2AuthenticationToken</code> 클래스를 생성하고 SecurityContextHolder에 저장됩니다.</p>
+<p>SecurityContextHolder에 등록된 여러 컨텍스트들은 oauth 인증 - 인가 흐름에 맞는 생명주기로 관리됩니다.</p>
+<pre class="hljs"><code>    <span class="hljs-keyword">package</span> com.gaejangmo.apiserver;
+    
+    <span class="hljs-meta">@ResController</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Controller</span> </span>{
+    
+      <span class="hljs-meta">@GetMapping</span>(<span class="hljs-string">"/access_token"</span>)
+      <span class="hljs-function"><span class="hljs-keyword">public</span> String <span class="hljs-title">index</span><span class="hljs-params">(OAuth2AuthenticationToken authenticationToken)</span> </span>{
+
+    	<span class="hljs-comment">// SecurityContextHolder에 저장된 사용자 정보 사용</span>
+        log.info(<span class="hljs-string">"authenticationToken {}"</span>, authenticationToken);
+    
+    	<span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+      }
+    }
+</code></pre>
+<p>그래서 위와 같이 우리는 컨트롤러에서 oauth 인가된 사용자 정보를 관리하는 <code>OAuth2AuthenticationToken</code> 객체를 바로 사용할 수 있습니다.</p>
+<h3>reference</h3>
+<ul>
+<li><a href="https://tools.ietf.org/html/rfc6749">https://tools.ietf.org/html/rfc6749</a></li>
+</ul> </section> <section id="article-navigation"> <div class="article-navigation-item article-navigation-next"> <a href="/article/6.html"> <div class="article-navigation-arrow article-navigation-next">＜</div> <div class="article-navigation-content article-navigation-next"> <p class="article-navigation-title">Unique Index</p> <p class="article-navigation-subtitle">Index를 몰라 더 삽질했던 Unique Index</p> </div> </a> </div> <div class="article-navigation-item article-navigation-prev"> <a href="/article/5.html"> <div class="article-navigation-arrow article-navigation-prev">＞</div> <div class="article-navigation-content article-navigation-prev"> <p class="article-navigation-title">Spring Redis</p> <p class="article-navigation-subtitle">spring에서 redis 간단한 실습</p> </div> </a> </div> </section> <section id="article-list-button-container"> <a href="/articles.html"> <div id="article-list-button">📚</div> </a> </section> </article> </main> <script defer src="/init.7c7d4dd7.js"></script>
+</body></html>
